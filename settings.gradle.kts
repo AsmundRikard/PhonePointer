@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "PhonePointer"
-include ':app'
+include(":app")
