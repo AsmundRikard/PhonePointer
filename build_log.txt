@@ -35,11 +35,9 @@
 > Task :app:processDebugResources
 
 > Task :app:compileDebugKotlin
-w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/MainActivity.kt:150:27 'fun getMetrics(p0: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
-w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/MainActivity.kt:164:28 'fun getMetrics(p0: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
-w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/MainActivity.kt:185:27 'fun getMetrics(p0: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
 w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/OverlayPresentation.kt:48:17 'fun getMetrics(p0: DisplayMetrics!): Unit' is deprecated. Deprecated in Java.
-w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/ShizukuInput.kt:39:39 'static fun newProcess(p0: Array<(out) String!>, p1: Array<(out) String!>?, p2: String?): ShizukuRemoteProcess!' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/PointerAccessibilityService.kt:142:17 'fun getRealSize(p0: Point!): Unit' is deprecated. Deprecated in Java.
+w: file:///C:/Users/Ambassator/Documents/Intellij/Current/PhonePointer/app/src/main/java/me/ambassator/phonepointer/ShizukuInput.kt:218:39 'static fun newProcess(p0: Array<(out) String!>, p1: Array<(out) String!>?, p2: String?): ShizukuRemoteProcess!' is deprecated. Deprecated in Java.
 
 > Task :app:compileDebugJavaWithJavac NO-SOURCE
 > Task :app:processDebugJavaRes UP-TO-DATE
