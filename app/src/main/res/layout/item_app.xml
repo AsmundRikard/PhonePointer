@@ -17,9 +17,9 @@
         <!-- Color indicator dot -->
         <View
             android:id="@+id/color_indicator"
-            android:layout_width="8dp"
-            android:layout_height="8dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="6dp"
             android:visibility="gone"
             android:background="@drawable/circle_indicator" />
         
@@ -28,6 +28,36 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:contentDescription="@null" />
+            
+        <!-- Reorder buttons (visible for running apps) -->
+        <LinearLayout
+            android:id="@+id/reorder_buttons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginStart="4dp"
+            android:visibility="gone">
+            
+            <TextView
+                android:id="@+id/btn_move_up"
+                android:layout_width="24dp"
+                android:layout_height="20dp"
+                android:text="▲"
+                android:textSize="14sp"
+                android:textColor="#AAFFFFFF"
+                android:gravity="center"
+                android:background="?android:attr/selectableItemBackgroundBorderless"/>
+                
+            <TextView
+                android:id="@+id/btn_move_down"
+                android:layout_width="24dp"
+                android:layout_height="20dp"
+                android:text="▼"
+                android:textSize="14sp"
+                android:textColor="#AAFFFFFF"
+                android:gravity="center"
+                android:background="?android:attr/selectableItemBackgroundBorderless"/>
+        </LinearLayout>
     </LinearLayout>
 
     <TextView

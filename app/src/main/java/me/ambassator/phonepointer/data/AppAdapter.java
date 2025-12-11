@@ -18,6 +18,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.ViewHolder> {
 
     private final List<AppInfo> apps;
     private final OnAppClickListener listener;
+    private OnReorderListener reorderListener;
 
     // Snap colors for indicators (matching AppsOverlayController.COLORS)
     private static final int[] COLORS = {
@@ -28,9 +29,19 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.ViewHolder> {
         void onAppClick(AppInfo app);
     }
 
+    public interface OnReorderListener {
+        void onMoveUp(int position);
+
+        void onMoveDown(int position);
+    }
+
     public AppAdapter(List<AppInfo> apps, OnAppClickListener listener) {
         this.apps = apps;
         this.listener = listener;
+    }
+
+    public void setReorderListener(OnReorderListener listener) {
+        this.reorderListener = listener;
     }
 
     @NonNull
@@ -52,7 +63,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.ViewHolder> {
         holder.label.setAlpha(alpha);
         holder.itemView.setAlpha(alpha);
 
-        // Show color indicator if colorIndex is set
+        // Show color indicator and reorder buttons if colorIndex is set (running apps)
         if (app.colorIndex >= 0 && holder.colorIndicator != null) {
             holder.colorIndicator.setVisibility(View.VISIBLE);
             int color = COLORS[app.colorIndex % COLORS.length];
@@ -60,8 +71,34 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.ViewHolder> {
             drawable.setShape(GradientDrawable.OVAL);
             drawable.setColor(color);
             holder.colorIndicator.setBackground(drawable);
-        } else if (holder.colorIndicator != null) {
-            holder.colorIndicator.setVisibility(View.GONE);
+
+            // Show reorder buttons for running apps
+            if (holder.reorderButtons != null) {
+                holder.reorderButtons.setVisibility(View.VISIBLE);
+
+                int pos = position;
+                holder.btnMoveUp.setOnClickListener(v -> {
+                    if (reorderListener != null && pos > 0) {
+                        reorderListener.onMoveUp(pos);
+                    }
+                });
+                holder.btnMoveDown.setOnClickListener(v -> {
+                    if (reorderListener != null && pos < apps.size() - 1) {
+                        reorderListener.onMoveDown(pos);
+                    }
+                });
+
+                // Dim arrows that can't be used
+                holder.btnMoveUp.setAlpha(pos > 0 ? 1.0f : 0.3f);
+                holder.btnMoveDown.setAlpha(pos < apps.size() - 1 ? 1.0f : 0.3f);
+            }
+        } else {
+            if (holder.colorIndicator != null) {
+                holder.colorIndicator.setVisibility(View.GONE);
+            }
+            if (holder.reorderButtons != null) {
+                holder.reorderButtons.setVisibility(View.GONE);
+            }
         }
 
         holder.itemView.setOnClickListener(v -> listener.onAppClick(app));
@@ -76,12 +113,18 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.ViewHolder> {
         final ImageView icon;
         final TextView label;
         final View colorIndicator;
+        final View reorderButtons;
+        final View btnMoveUp;
+        final View btnMoveDown;
 
         ViewHolder(View itemView) {
             super(itemView);
             icon = itemView.findViewById(R.id.icon);
             label = itemView.findViewById(R.id.label);
             colorIndicator = itemView.findViewById(R.id.color_indicator);
+            reorderButtons = itemView.findViewById(R.id.reorder_buttons);
+            btnMoveUp = itemView.findViewById(R.id.btn_move_up);
+            btnMoveDown = itemView.findViewById(R.id.btn_move_down);
         }
     }
 }

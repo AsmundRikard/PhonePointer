@@ -157,6 +157,33 @@ public class AppsOverlayController {
         });
         recRunning.setAdapter(runningAdapter);
 
+        // Enable button-based reordering for running apps (works with cursor)
+        runningAdapter.setReorderListener(new AppAdapter.OnReorderListener() {
+            @Override
+            public void onMoveUp(int position) {
+                if (position > 0) {
+                    java.util.Collections.swap(runningApps, position, position - 1);
+                    // Update colorIndex for all items to match new positions
+                    for (int i = 0; i < runningApps.size(); i++) {
+                        runningApps.get(i).colorIndex = i;
+                    }
+                    runningAdapter.notifyDataSetChanged();
+                }
+            }
+
+            @Override
+            public void onMoveDown(int position) {
+                if (position < runningApps.size() - 1) {
+                    java.util.Collections.swap(runningApps, position, position + 1);
+                    // Update colorIndex for all items to match new positions
+                    for (int i = 0; i < runningApps.size(); i++) {
+                        runningApps.get(i).colorIndex = i;
+                    }
+                    runningAdapter.notifyDataSetChanged();
+                }
+            }
+        });
+
         // Load running apps in background thread - filtered by external display
         android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
         new Thread(() -> {
