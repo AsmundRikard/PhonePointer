@@ -103,6 +103,26 @@ public class AppsOverlayController {
         RecyclerView recRunning = overlayView.findViewById(R.id.recycler_view_running);
         recRunning.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(themedContext));
 
+        // Dynamically size containers based on display dimensions
+        int containerHeight = (int) (displayHeight * 0.6); // 60% of screen height
+        int runningWidth = (int) (displayWidth * 0.2); // 20% of screen width
+        int allAppsWidth = (int) (displayWidth * 0.55); // 55% of screen width
+
+        // Get the All Apps parent (the LinearLayout containing the recyclerView)
+        View allAppsContainer = (View) recyclerView.getParent();
+
+        // Set running apps container size
+        android.view.ViewGroup.LayoutParams runningParams = runningContainer.getLayoutParams();
+        runningParams.width = runningWidth;
+        runningParams.height = containerHeight;
+        runningContainer.setLayoutParams(runningParams);
+
+        // Set all apps container size
+        android.view.ViewGroup.LayoutParams allAppsParams = allAppsContainer.getLayoutParams();
+        allAppsParams.width = allAppsWidth;
+        allAppsParams.height = containerHeight;
+        allAppsContainer.setLayoutParams(allAppsParams);
+
         // Show containers immediately (may be empty initially)
         runningContainer.setVisibility(View.VISIBLE);
         divider.setVisibility(View.VISIBLE);
@@ -111,9 +131,28 @@ public class AppsOverlayController {
         // Create empty adapter initially
         List<AppInfo> runningApps = new java.util.ArrayList<>();
         AppAdapter runningAdapter = new AppAdapter(runningApps, app -> {
-            if (app.taskId != -1) {
-                new Thread(() -> SystemTaskHelper.moveTaskToFront(app.taskId)).start();
-                hide();
+            // Toggle exclusion state - excluded apps will be minimized during snap
+            app.excluded = !app.excluded;
+            // Refresh the adapter to show visual feedback
+            recRunning.getAdapter().notifyDataSetChanged();
+
+            // Update snap controls based on non-excluded app count
+            int includedCount = 0;
+            for (AppInfo a : runningApps) {
+                if (!a.excluded)
+                    includedCount++;
+            }
+            int effectiveCount = Math.max(2, includedCount);
+            List<SnapPreset> presets = getSnapPresets(effectiveCount);
+
+            snapContainer.removeAllViews();
+            for (SnapPreset preset : presets) {
+                View icon = createSnapIcon(themedContext, preset, effectiveCount);
+                icon.setOnClickListener(v -> {
+                    applySnap(preset, runningApps, finalDisplayWidth, finalDisplayHeight);
+                    hide();
+                });
+                snapContainer.addView(icon);
             }
         });
         recRunning.setAdapter(runningAdapter);
@@ -124,6 +163,7 @@ public class AppsOverlayController {
             // Get only packages visible on the external display
             List<String> visiblePackages = SystemTaskHelper.getVisiblePackages(finalTargetDisplayId);
             List<AppInfo> loadedApps = new java.util.ArrayList<>();
+            int colorIdx = 0;
 
             for (String pkg : visiblePackages) {
                 // Get task ID for this package
@@ -134,7 +174,9 @@ public class AppsOverlayController {
                     if (info.packageName.equals(pkg)) {
                         AppInfo taskInfo = new AppInfo(info.label, info.packageName, info.icon, info.componentName);
                         taskInfo.taskId = taskId;
+                        taskInfo.colorIndex = colorIdx; // Assign color for snap preview matching
                         loadedApps.add(taskInfo);
+                        colorIdx++;
                         break;
                     }
                 }
@@ -245,37 +287,47 @@ public class AppsOverlayController {
                     // Small delay to let the new app start
                     Thread.sleep(500);
 
-                    List<SystemTaskHelper.RunningTask> currentTasks = SystemTaskHelper.getRecentTasks(10);
-                    int runningCount = currentTasks.size();
+                    // Get only visible packages on the external display
+                    List<String> visiblePackages = SystemTaskHelper.getVisiblePackages(displayId);
+                    int runningCount = visiblePackages.size();
 
-                    // Auto-snap based on number of running tasks
-                    if (runningCount == 2) {
+                    // Get task IDs for each visible package
+                    List<Integer> taskIds = new java.util.ArrayList<>();
+                    for (String pkg : visiblePackages) {
+                        int taskId = SystemTaskHelper.getTaskId(pkg);
+                        if (taskId != -1) {
+                            taskIds.add(taskId);
+                        }
+                    }
+
+                    // Auto-snap based on number of visible tasks on external display
+                    if (taskIds.size() == 2) {
                         // Split screen: left and right
-                        SystemTaskHelper.resizeTask(currentTasks.get(0).id,
+                        SystemTaskHelper.resizeTask(taskIds.get(0),
                                 new android.graphics.Rect(width / 2, 0, width, height));
-                        SystemTaskHelper.resizeTask(currentTasks.get(1).id,
+                        SystemTaskHelper.resizeTask(taskIds.get(1),
                                 new android.graphics.Rect(0, 0, width / 2, height));
-                    } else if (runningCount == 3) {
+                    } else if (taskIds.size() == 3) {
                         // 3-way split
-                        SystemTaskHelper.resizeTask(currentTasks.get(0).id,
+                        SystemTaskHelper.resizeTask(taskIds.get(0),
                                 new android.graphics.Rect(width / 2, height / 2, width, height));
-                        SystemTaskHelper.resizeTask(currentTasks.get(1).id,
+                        SystemTaskHelper.resizeTask(taskIds.get(1),
                                 new android.graphics.Rect(width / 2, 0, width, height / 2));
-                        SystemTaskHelper.resizeTask(currentTasks.get(2).id,
+                        SystemTaskHelper.resizeTask(taskIds.get(2),
                                 new android.graphics.Rect(0, 0, width / 2, height));
-                    } else if (runningCount >= 4) {
+                    } else if (taskIds.size() >= 4) {
                         // 2x2 grid
-                        if (currentTasks.size() > 0)
-                            SystemTaskHelper.resizeTask(currentTasks.get(0).id,
+                        if (taskIds.size() > 0)
+                            SystemTaskHelper.resizeTask(taskIds.get(0),
                                     new android.graphics.Rect(width / 2, height / 2, width, height));
-                        if (currentTasks.size() > 1)
-                            SystemTaskHelper.resizeTask(currentTasks.get(1).id,
+                        if (taskIds.size() > 1)
+                            SystemTaskHelper.resizeTask(taskIds.get(1),
                                     new android.graphics.Rect(0, height / 2, width / 2, height));
-                        if (currentTasks.size() > 2)
-                            SystemTaskHelper.resizeTask(currentTasks.get(2).id,
+                        if (taskIds.size() > 2)
+                            SystemTaskHelper.resizeTask(taskIds.get(2),
                                     new android.graphics.Rect(width / 2, 0, width, height / 2));
-                        if (currentTasks.size() > 3)
-                            SystemTaskHelper.resizeTask(currentTasks.get(3).id,
+                        if (taskIds.size() > 3)
+                            SystemTaskHelper.resizeTask(taskIds.get(3),
                                     new android.graphics.Rect(0, 0, width / 2, height / 2));
                     }
                 } catch (Exception e) {
@@ -463,27 +515,50 @@ public class AppsOverlayController {
     }
 
     private void applySnap(SnapPreset preset, List<AppInfo> apps, int displayW, int displayH) {
-        for (int i = 0; i < apps.size(); i++) {
-            if (i >= preset.zones.size())
-                break;
+        // Separate apps into included and excluded
+        List<AppInfo> includedApps = new java.util.ArrayList<>();
+        List<AppInfo> excludedApps = new java.util.ArrayList<>();
 
-            AppInfo app = apps.get(i);
-            android.graphics.RectF zone = preset.zones.get(i);
-            // RectF now has proper left, top, right, bottom coordinates
-            android.graphics.Rect bounds = new android.graphics.Rect(
-                    (int) (zone.left * displayW),
-                    (int) (zone.top * displayH),
-                    (int) (zone.right * displayW),
-                    (int) (zone.bottom * displayH));
-
-            if (app.taskId != -1) {
-                SystemTaskHelper.resizeTask(app.taskId, bounds);
-                DebugLogger.d("Snap applied to task", app.packageName + " snapped");
-                // Also ensures it's in freeform/multi-window mode if supported
-                // SystemTaskHelper.setTaskWindowingMode(app.taskId,
-                // SystemTaskHelper.WINDOWING_MODE_freeform); // Optional
+        for (AppInfo app : apps) {
+            if (app.excluded) {
+                excludedApps.add(app);
+            } else {
+                includedApps.add(app);
             }
         }
+
+        // Minimize excluded apps (move off-screen or to bottom)
+        new Thread(() -> {
+            for (AppInfo app : excludedApps) {
+                if (app.taskId != -1) {
+                    // Minimize by moving to a tiny area at bottom (or use minimize API if
+                    // available)
+                    android.graphics.Rect minimizedBounds = new android.graphics.Rect(0, displayH - 1, 1, displayH);
+                    SystemTaskHelper.resizeTask(app.taskId, minimizedBounds);
+                    DebugLogger.d("Snap", app.packageName + " minimized");
+                }
+            }
+
+            // Resize included apps to snap zones
+            int zoneIndex = 0;
+            for (AppInfo app : includedApps) {
+                if (zoneIndex >= preset.zones.size())
+                    break;
+
+                android.graphics.RectF zone = preset.zones.get(zoneIndex);
+                android.graphics.Rect bounds = new android.graphics.Rect(
+                        (int) (zone.left * displayW),
+                        (int) (zone.top * displayH),
+                        (int) (zone.right * displayW),
+                        (int) (zone.bottom * displayH));
+
+                if (app.taskId != -1) {
+                    SystemTaskHelper.resizeTask(app.taskId, bounds);
+                    DebugLogger.d("Snap", app.packageName + " snapped to zone " + zoneIndex);
+                }
+                zoneIndex++;
+            }
+        }).start();
     }
 
     public void hide() {

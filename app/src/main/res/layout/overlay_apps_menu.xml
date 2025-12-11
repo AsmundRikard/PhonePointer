@@ -46,8 +46,8 @@
                 <!-- Running Apps (Left) -->
                 <LinearLayout
                     android:id="@+id/running_apps_container"
-                    android:layout_width="200dp"
-                    android:layout_height="400dp"
+                    android:layout_width="280dp"
+                    android:layout_height="500dp"
                     android:orientation="vertical"
                     android:visibility="gone">
                     <TextView
@@ -76,8 +76,8 @@
 
                 <!-- All Apps (Right) -->
                  <LinearLayout
-                    android:layout_width="600dp"
-                    android:layout_height="400dp"
+                    android:layout_width="800dp"
+                    android:layout_height="500dp"
                     android:orientation="vertical">
                     <TextView
                         android:layout_width="match_parent"
