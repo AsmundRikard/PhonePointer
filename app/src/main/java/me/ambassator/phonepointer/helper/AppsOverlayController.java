@@ -457,7 +457,9 @@ public class AppsOverlayController {
     }
 
     private android.graphics.RectF rect(float l, float t, float w, float h) {
-        return new android.graphics.RectF(l, t, w, h);
+        // RectF expects (left, top, right, bottom) - convert width/height to
+        // right/bottom
+        return new android.graphics.RectF(l, t, l + w, t + h);
     }
 
     private void applySnap(SnapPreset preset, List<AppInfo> apps, int displayW, int displayH) {
@@ -467,11 +469,12 @@ public class AppsOverlayController {
 
             AppInfo app = apps.get(i);
             android.graphics.RectF zone = preset.zones.get(i);
+            // RectF now has proper left, top, right, bottom coordinates
             android.graphics.Rect bounds = new android.graphics.Rect(
                     (int) (zone.left * displayW),
                     (int) (zone.top * displayH),
-                    (int) ((zone.left + zone.width()) * displayW),
-                    (int) ((zone.top + zone.height()) * displayH));
+                    (int) (zone.right * displayW),
+                    (int) (zone.bottom * displayH));
 
             if (app.taskId != -1) {
                 SystemTaskHelper.resizeTask(app.taskId, bounds);
