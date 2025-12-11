@@ -1,13 +1,11 @@
 package me.ambassator.phonepointer.activity;
 
-import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.hardware.display.DisplayManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -318,21 +316,6 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    private void toggleGyro() {
-        SharedPreferences pref = U.getSharedPreferences(this);
-        boolean enabled = !pref.getBoolean(Constants.PREF_DESKTOP_GYRO, false);
-        pref.edit().putBoolean(Constants.PREF_DESKTOP_GYRO, enabled).apply();
-        inputController.setGyroEnabled(this, enabled);
-        Toast.makeText(this, enabled ? "Gyro enabled" : "Gyro disabled", Toast.LENGTH_SHORT).show();
-    }
-
-    private void toggleDim() {
-        dimScreen = !dimScreen;
-        U.getSharedPreferences(this).edit().putBoolean(Constants.PREF_DIM_SCREEN, dimScreen).apply();
-        applyScreenDim();
-        Toast.makeText(this, dimScreen ? "Screen dimmed" : "Screen brightness restored", Toast.LENGTH_SHORT).show();
-    }
-
     private void applyScreenDim() {
         WindowManager.LayoutParams lp = getWindow().getAttributes();
         if (dimScreen) {
@@ -343,19 +326,8 @@ public class MainActivity extends AppCompatActivity {
         getWindow().setAttributes(lp);
     }
 
-    private void toggleGyroRate() {
-        gyroSlow = !gyroSlow;
-        U.getSharedPreferences(this).edit().putBoolean(Constants.PREF_DESKTOP_GYRO_SLOW, gyroSlow).apply();
-        inputController.setGyroDelayNormal(gyroSlow);
-        Toast.makeText(this, gyroSlow ? "Gyro rate: NORMAL (battery friendly)" : "Gyro rate: FAST", Toast.LENGTH_SHORT).show();
-    }
-
     private void openSettings() {
         startActivity(new Intent(this, SettingsActivity.class));
-    }
-
-    private void openLogs() {
-        startActivity(new Intent(this, LogViewerActivity.class));
     }
 
     @Override
