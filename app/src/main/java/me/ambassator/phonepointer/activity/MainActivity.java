@@ -29,7 +29,8 @@ import me.ambassator.phonepointer.util.U;
 import rikka.shizuku.Shizuku;
 
 /**
- * Phone UI that mirrors Taskbar's desktop input registration (touchpad + cursor attach).
+ * Phone UI that mirrors Taskbar's desktop input registration (touchpad + cursor
+ * attach).
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -159,6 +160,8 @@ public class MainActivity extends AppCompatActivity {
         navRow.addView(createNavButton("Back", () -> sendKeyEvent(KeyEvent.KEYCODE_BACK)));
         navRow.addView(createNavButton("Home", () -> sendKeyEvent(KeyEvent.KEYCODE_HOME)));
         navRow.addView(createNavButton("Recents", () -> sendKeyEvent(KeyEvent.KEYCODE_APP_SWITCH)));
+        navRow.addView(createNavButton("Apps",
+                () -> me.ambassator.phonepointer.helper.AppsOverlayController.getInstance().show(this)));
         navRow.addView(createNavButton("Settings", this::openSettings));
 
         layout.addView(navRow);
@@ -241,7 +244,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Log all displays
         for (Display d : displayManager.getDisplays()) {
-            DebugLogger.d("Displays", "Display ID: " + d.getDisplayId() + " Name: " + d.getName() + " State: " + d.getState());
+            DebugLogger.d("Displays",
+                    "Display ID: " + d.getDisplayId() + " Name: " + d.getName() + " State: " + d.getState());
         }
 
         Display external = U.getExternalDisplay(this);
@@ -262,7 +266,8 @@ public class MainActivity extends AppCompatActivity {
             detachCursor();
             statusText.setText("External display disconnected");
             statusText.setTextColor(Color.GRAY);
-            // do not fall back to phone display; keep lastExternalDisplayId for when it returns
+            // do not fall back to phone display; keep lastExternalDisplayId for when it
+            // returns
             attachTouchpad();
         }
     }

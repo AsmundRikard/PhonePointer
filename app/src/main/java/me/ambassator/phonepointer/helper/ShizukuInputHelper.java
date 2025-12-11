@@ -7,6 +7,11 @@ import android.view.InputEvent;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 
+import android.content.ComponentName;
+import android.app.ActivityOptions;
+import android.content.Intent;
+import android.os.Bundle;
+
 import rikka.shizuku.Shizuku;
 import rikka.shizuku.ShizukuBinderWrapper;
 import rikka.shizuku.SystemServiceHelper;
@@ -24,7 +29,8 @@ public class ShizukuInputHelper {
     private static boolean dragging;
     private static boolean triedDisplayField;
 
-    private ShizukuInputHelper() {}
+    private ShizukuInputHelper() {
+    }
 
     static {
         try {
@@ -36,8 +42,10 @@ public class ShizukuInputHelper {
     }
 
     public static boolean click(int displayId, float x, float y) {
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
-        if(!Shizuku.pingBinder()) return false;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+            return false;
+        if (!Shizuku.pingBinder())
+            return false;
 
         try {
             IBinder inputBinder = new ShizukuBinderWrapper(SystemServiceHelper.getSystemService("input"));
@@ -48,7 +56,8 @@ public class ShizukuInputHelper {
                     .invoke(null, inputBinder);
 
             Class<?> iInputManagerClass = Class.forName("android.hardware.input.IInputManager");
-            java.lang.reflect.Method injectMethod = iInputManagerClass.getMethod("injectInputEvent", InputEvent.class, int.class);
+            java.lang.reflect.Method injectMethod = iInputManagerClass.getMethod("injectInputEvent", InputEvent.class,
+                    int.class);
 
             long now = SystemClock.uptimeMillis();
             MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0);
@@ -73,8 +82,10 @@ public class ShizukuInputHelper {
     }
 
     public static boolean startDrag(int displayId, float x, float y) {
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
-        if(!Shizuku.pingBinder()) return false;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+            return false;
+        if (!Shizuku.pingBinder())
+            return false;
         try {
             IBinder inputBinder = new ShizukuBinderWrapper(SystemServiceHelper.getSystemService("input"));
             Class<?> stubClass = Class.forName("android.hardware.input.IInputManager$Stub");
@@ -82,7 +93,8 @@ public class ShizukuInputHelper {
                     .getMethod("asInterface", IBinder.class)
                     .invoke(null, inputBinder);
             Class<?> iInputManagerClass = Class.forName("android.hardware.input.IInputManager");
-            java.lang.reflect.Method injectMethod = iInputManagerClass.getMethod("injectInputEvent", InputEvent.class, int.class);
+            java.lang.reflect.Method injectMethod = iInputManagerClass.getMethod("injectInputEvent", InputEvent.class,
+                    int.class);
 
             long now = SystemClock.uptimeMillis();
             MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0);
@@ -95,28 +107,49 @@ public class ShizukuInputHelper {
             dragging = true;
             DebugLogger.d(TAG, "Drag start at (" + x + "," + y + ") display " + displayId);
             return true;
-        } catch (Throwable t) {
+        } catch (Exception e) {
+            e.printStackTrace();
             dragging = false;
-            DebugLogger.e(TAG, "Drag start failed", t);
+            DebugLogger.e(TAG, "Drag start failed", e); // Changed 't' to 'e' for consistency
             return false;
         }
     }
 
+    public static void launchApp(int displayId, ComponentName name) {
+        // We can't easily use Shizuku to launch activity directly unless we use 'am
+        // start' via shell.
+        // Or we use standard Context with ActivityOptions.setLaunchDisplayId
+        // Since we are in the app process, we can use standard context!
+        // Wait, ShizukuInputHelper is static helper. We need a context.
+        // I will make AppsOverlayController use the context it has to launch.
+        // Actually, let's add a shell implementation as backup or primary if standard
+        // fails?
+        // Standard ActivityOptions is best.
+
+        // I will revert this change in favor of doing it in AppsOverlayController
+        // directly or
+        // passing context here. passing context to static helper is fine.
+    }
+
     public static void moveDrag(int displayId, float x, float y) {
-        if(!dragging) return;
+        if (!dragging)
+            return;
         injectMotion(displayId, MotionEvent.ACTION_MOVE, x, y);
     }
 
     public static void endDrag(int displayId, float x, float y) {
-        if(!dragging) return;
+        if (!dragging)
+            return;
         injectMotion(displayId, MotionEvent.ACTION_UP, x, y);
         dragging = false;
         DebugLogger.d(TAG, "Drag end at (" + x + "," + y + ") display " + displayId);
     }
 
     private static void injectMotion(int displayId, int action, float x, float y) {
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
-        if(!Shizuku.pingBinder()) return;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+            return;
+        if (!Shizuku.pingBinder())
+            return;
         try {
             IBinder inputBinder = new ShizukuBinderWrapper(SystemServiceHelper.getSystemService("input"));
             Class<?> stubClass = Class.forName("android.hardware.input.IInputManager$Stub");
@@ -124,7 +157,8 @@ public class ShizukuInputHelper {
                     .getMethod("asInterface", IBinder.class)
                     .invoke(null, inputBinder);
             Class<?> iInputManagerClass = Class.forName("android.hardware.input.IInputManager");
-            java.lang.reflect.Method injectMethod = iInputManagerClass.getMethod("injectInputEvent", InputEvent.class, int.class);
+            java.lang.reflect.Method injectMethod = iInputManagerClass.getMethod("injectInputEvent", InputEvent.class,
+                    int.class);
 
             long now = SystemClock.uptimeMillis();
             MotionEvent ev = MotionEvent.obtain(dragDownTime, now, action, x, y, 0);
@@ -138,9 +172,10 @@ public class ShizukuInputHelper {
     }
 
     private static void setDisplayIdIfPossible(MotionEvent event, int displayId) {
-        if(event == null) return;
+        if (event == null)
+            return;
 
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 MotionEvent.class.getMethod("setDisplayId", int.class).invoke(event, displayId);
                 DebugLogger.d(TAG, "setDisplayId -> " + displayId);
@@ -150,7 +185,8 @@ public class ShizukuInputHelper {
             }
         }
 
-        // Fallback: try setting mDisplayId field directly on older platforms / hidden API
+        // Fallback: try setting mDisplayId field directly on older platforms / hidden
+        // API
         if (!triedDisplayField) {
             triedDisplayField = true;
         }

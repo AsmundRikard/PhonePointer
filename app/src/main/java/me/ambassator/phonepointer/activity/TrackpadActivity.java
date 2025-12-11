@@ -14,7 +14,8 @@ import me.ambassator.phonepointer.util.Constants;
 import me.ambassator.phonepointer.util.U;
 
 /**
- * Fullscreen touchpad UI on the phone (matches Taskbar's TrackpadActivity behavior).
+ * Fullscreen touchpad UI on the phone (matches Taskbar's TrackpadActivity
+ * behavior).
  */
 public class TrackpadActivity extends AppCompatActivity {
 
@@ -35,6 +36,7 @@ public class TrackpadActivity extends AppCompatActivity {
         root.setBackgroundColor(getResources().getColor(android.R.color.black));
 
         setContentView(root);
+
     }
 
     @Override

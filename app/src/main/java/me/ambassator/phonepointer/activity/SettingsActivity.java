@@ -47,13 +47,6 @@ public class SettingsActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        TextView title = new TextView(this);
-        title.setText("Settings");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(22f);
-        title.setGravity(Gravity.START);
-        content.addView(title);
-
         content.addView(makeSpacer());
 
         addSwitch(content,
