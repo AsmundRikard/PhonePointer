@@ -18,6 +18,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.HorizontalScrollView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -153,6 +154,9 @@ public class MainActivity extends AppCompatActivity {
         statusText.setPadding(0, 16, 0, 24);
         layout.addView(statusText);
 
+        HorizontalScrollView navScroll = new HorizontalScrollView(this);
+        navScroll.setHorizontalScrollBarEnabled(false);
+
         LinearLayout navRow = new LinearLayout(this);
         navRow.setOrientation(LinearLayout.HORIZONTAL);
         navRow.setGravity(Gravity.CENTER);
@@ -162,9 +166,13 @@ public class MainActivity extends AppCompatActivity {
         navRow.addView(createNavButton("Recents", () -> sendKeyEvent(KeyEvent.KEYCODE_APP_SWITCH)));
         navRow.addView(createNavButton("Apps",
                 () -> me.ambassator.phonepointer.helper.AppsOverlayController.getInstance().show(this)));
+        navRow.addView(createNavButton("Keyboard",
+                () -> me.ambassator.phonepointer.helper.KeyboardOverlayController.getInstance().show(this,
+                        externalDisplayId)));
         navRow.addView(createNavButton("Settings", this::openSettings));
 
-        layout.addView(navRow);
+        navScroll.addView(navRow);
+        layout.addView(navScroll);
 
         touchpadContainer = new FrameLayout(this);
         LinearLayout.LayoutParams trackpadParams = new LinearLayout.LayoutParams(

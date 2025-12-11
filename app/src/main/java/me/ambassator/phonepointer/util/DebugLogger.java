@@ -11,13 +11,13 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * Minimal file logger that works without adb. Writes to app internal storage (phonepointer.log).
+ * Minimal file logger that works without adb. Writes to app internal storage
+ * (phonepointer.log).
  */
 public final class DebugLogger {
 
     private static final String FILE_NAME = "phonepointer.log";
-    private static final SimpleDateFormat DATE_FORMAT =
-            new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
     private static Context appContext;
 
     private DebugLogger() {
@@ -40,12 +40,23 @@ public final class DebugLogger {
     }
 
     public static String getLogPath() {
-        if (appContext == null) return "unknown";
+        if (appContext == null)
+            return "unknown";
         return new File(appContext.getFilesDir(), FILE_NAME).getAbsolutePath();
     }
 
+    public static void clearLogs() {
+        if (appContext == null)
+            return;
+        File file = new File(appContext.getFilesDir(), FILE_NAME);
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+
     private static synchronized void write(String level, String tag, String msg, Throwable t) {
-        if (appContext == null) return;
+        if (appContext == null)
+            return;
         File file = new File(appContext.getFilesDir(), FILE_NAME);
         try (FileWriter fw = new FileWriter(file, true)) {
             fw.write(DATE_FORMAT.format(new Date()));

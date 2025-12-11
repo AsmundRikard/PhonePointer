@@ -18,6 +18,7 @@ import me.ambassator.phonepointer.R;
 import me.ambassator.phonepointer.data.AppAdapter;
 import me.ambassator.phonepointer.data.AppInfo;
 import me.ambassator.phonepointer.data.AppRepository;
+import me.ambassator.phonepointer.util.DebugLogger;
 import me.ambassator.phonepointer.util.U;
 
 public class AppsOverlayController {
@@ -94,92 +95,77 @@ public class AppsOverlayController {
         });
         recyclerView.setAdapter(adapter);
 
-        // --- Running Apps Setup ---
-        List<SystemTaskHelper.RunningTask> recentTasks = SystemTaskHelper.getRecentTasks(20);
-        // Filter out our own overlay or launcher if needed, but Shizuku usually returns
-        // all standard tasks
-        // Convert to AppInfo list
-        List<AppInfo> runningApps = new java.util.ArrayList<>();
-        for (SystemTaskHelper.RunningTask task : recentTasks) {
-            // Find AppInfo matching package
-            for (AppInfo info : apps) {
-                if (info.packageName.equals(task.baseActivity.getPackageName())) {
-                    // Clone info to add taskId
-                    AppInfo taskInfo = new AppInfo(info.label, info.packageName, info.icon, info.componentName);
-                    taskInfo.taskId = task.id;
-                    runningApps.add(taskInfo);
-                    break;
-                }
-            }
-        }
-
+        // --- Running Apps Setup (UI elements) ---
         View runningContainer = overlayView.findViewById(R.id.running_apps_container);
         View divider = overlayView.findViewById(R.id.divider);
         View snapScroll = overlayView.findViewById(R.id.snap_controls_scroll);
         android.widget.LinearLayout snapContainer = overlayView.findViewById(R.id.snap_controls_container);
+        RecyclerView recRunning = overlayView.findViewById(R.id.recycler_view_running);
+        recRunning.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(themedContext));
 
-        if (true) { // ALWAYS SHOW for now, to verify layout. Or check !runningApps.isEmpty()
-            runningContainer.setVisibility(View.VISIBLE);
-            divider.setVisibility(View.VISIBLE);
+        // Show containers immediately (may be empty initially)
+        runningContainer.setVisibility(View.VISIBLE);
+        divider.setVisibility(View.VISIBLE);
+        snapScroll.setVisibility(View.VISIBLE);
 
-            // If empty, maybe show a "No running apps" text?
-            // For now, let's just show the container so user sees the split.
+        // Create empty adapter initially
+        List<AppInfo> runningApps = new java.util.ArrayList<>();
+        AppAdapter runningAdapter = new AppAdapter(runningApps, app -> {
+            if (app.taskId != -1) {
+                new Thread(() -> SystemTaskHelper.moveTaskToFront(app.taskId)).start();
+                hide();
+            }
+        });
+        recRunning.setAdapter(runningAdapter);
 
-            snapScroll.setVisibility(View.VISIBLE);
+        // Load running apps in background thread - filtered by external display
+        android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        new Thread(() -> {
+            // Get only packages visible on the external display
+            List<String> visiblePackages = SystemTaskHelper.getVisiblePackages(finalTargetDisplayId);
+            List<AppInfo> loadedApps = new java.util.ArrayList<>();
 
-            RecyclerView recRunning = overlayView.findViewById(R.id.recycler_view_running);
-            recRunning.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(themedContext));
-            AppAdapter runningAdapter = new AppAdapter(runningApps, app -> {
-                // Click on running app -> Bring to front
-                if (app.taskId != -1) {
-                    SystemTaskHelper.moveTaskToFront(app.taskId);
-                    hide();
+            for (String pkg : visiblePackages) {
+                // Get task ID for this package
+                int taskId = SystemTaskHelper.getTaskId(pkg);
+
+                // Find matching AppInfo
+                for (AppInfo info : apps) {
+                    if (info.packageName.equals(pkg)) {
+                        AppInfo taskInfo = new AppInfo(info.label, info.packageName, info.icon, info.componentName);
+                        taskInfo.taskId = taskId;
+                        loadedApps.add(taskInfo);
+                        break;
+                    }
+                }
+            }
+
+            // Update UI on main thread
+            mainHandler.post(() -> {
+                if (overlayView == null)
+                    return; // Overlay was closed
+
+                runningApps.clear();
+                runningApps.addAll(loadedApps);
+                runningAdapter.notifyDataSetChanged();
+
+                // Update snap controls
+                int taskCount = Math.max(2, runningApps.size());
+                List<SnapPreset> presets = getSnapPresets(taskCount);
+
+                snapContainer.removeAllViews();
+                for (SnapPreset preset : presets) {
+                    View icon = createSnapIcon(themedContext, preset, taskCount);
+                    icon.setOnClickListener(v -> {
+                        applySnap(preset, runningApps, finalDisplayWidth, finalDisplayHeight);
+                        hide();
+                    });
+                    snapContainer.addView(icon);
                 }
             });
-            recRunning.setAdapter(runningAdapter);
+        }).start();
 
-            // --- Snap Controls ---
-            // Show snap controls even if 0 apps running? No, only makes sense if we have
-            // app loops.
-            // But user wants to see "new things".
-            // Let's fallback to showing controls for 1 dummy task if empty, just for
-            // visuals?
-            // Or just properly populate presets for 0 items? No presets for 0/1 item.
-            // Let's fake count=2 if empty just to show UI? No that's confusing.
-
-            // If runningApps is empty, we should try to reload or log?
-            // If Shizuku failed, runningApps is empty.
-            if (runningApps.isEmpty()) {
-                // Add a dummy item "No apps running (Shizuku?)"
-                // Or just leave empty list but visible container
-            }
-
-            int taskCount = Math.max(2, runningApps.size()); // Force show at least 2 for demo?
-            // No, user said "I cant see any of the new things".
-            // If Shizuku fails, runningApps is empty.
-            // Let's allow taskCount 2 defaults if empty to show the UI buttons at least?
-
-            List<SnapPreset> presets = getSnapPresets(taskCount);
-
-            snapContainer.removeAllViews();
-            for (SnapPreset preset : presets) {
-                View icon = createSnapIcon(themedContext, preset, taskCount);
-                icon.setOnClickListener(v -> {
-                    // Apply Snap
-                    applySnap(preset, runningApps, finalDisplayWidth, finalDisplayHeight);
-                    hide();
-                });
-                snapContainer.addView(icon);
-            }
-
-        } else {
-            runningContainer.setVisibility(View.GONE);
-            divider.setVisibility(View.GONE);
-            snapScroll.setVisibility(View.GONE);
-        }
-
-        // Close on outside click is hard with simple view, so let's make the root
-        // clickable to close
+        // Close on outside click
         overlayView.setOnClickListener(v -> hide());
         // Prevent clicks on card from closing
         // The card is now deeper in hierarchy
@@ -235,98 +221,68 @@ public class AppsOverlayController {
 
     private void handleAppLaunch(Context context, AppInfo app, int displayId, int width, int height) {
         try {
-            // Update Recents
+            // Update Recents (fast, local operation)
             appRepository.updateRecentApp(context, app.packageName);
 
-            // Auto-Snap Logic
-            List<SystemTaskHelper.RunningTask> currentTasks = SystemTaskHelper.getRecentTasks(10);
-            // Filter invalid tasks? SystemTaskHelper returns valid ones.
-
-            // App Launch Logic
+            // Launch app immediately (don't wait for task detection)
             android.content.Intent launchIntent = new android.content.Intent(android.content.Intent.ACTION_MAIN);
             launchIntent.addCategory(android.content.Intent.CATEGORY_LAUNCHER);
             launchIntent.setComponent(app.componentName);
             launchIntent.setFlags(
-                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK); // Force
-                                                                                                                         // new
-                                                                                                                         // task
-                                                                                                                         // often
-                                                                                                                         // good
-                                                                                                                         // for
-                                                                                                                         // desktop
-                                                                                                                         // mode
+                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
 
             android.app.ActivityOptions options = android.app.ActivityOptions.makeBasic();
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 options.setLaunchDisplayId(displayId);
-
-                // --- AUTO SNAP LOGIC ---
-                // 0 tasks -> Fullscreen
-                // 1 task -> Split (Existing Left, New Right)
-                // 2 tasks -> Main Left, Split Right
-                // 3 tasks -> Grid 2x2
-
-                // We need to launch FIRST, then resize? Or launch into bounds?
-                // setLaunchBounds is available in ActivityOptions!
-
-                int runningCount = currentTasks.size();
-                android.graphics.Rect launchBounds = null;
-
-                if (runningCount == 0) {
-                    // 1st App: Fullscreen
-                    // launchBounds = new android.graphics.Rect(0, 0, width, height); // Optional,
-                    // usually default
-                } else if (runningCount == 1) {
-                    // 2nd App: Launch to RIGHT (50%)
-                    launchBounds = new android.graphics.Rect(width / 2, 0, width, height);
-                    // Resize existing to LEFT
-                    SystemTaskHelper.resizeTask(currentTasks.get(0).id,
-                            new android.graphics.Rect(0, 0, width / 2, height));
-                } else if (runningCount == 2) {
-                    // 3rd App: Launch to Bottom-Right (Quarter)
-                    launchBounds = new android.graphics.Rect(width / 2, height / 2, width, height);
-                    // Resize Task 1 (Oldest, or Most Recent?) Let's assume list is recent-first.
-                    // usually getRecentTasks returns most recent first.
-                    // So Task 0 is the one we were just looking at. Task 1 is older.
-                    // The requirement: "Resize Task 1 to **Left (50%)** (Main). Resize Task 2 to
-                    // **Top-Right (25%)**."
-                    // Let's assume user wants to keep the "Main" work area.
-
-                    // Current 0 was on right. Current 1 was on left.
-                    // This simple logic might get confused by user moving windows.
-                    // Let's simply enforce the layout on the IDs we have.
-                    // Task 0 (Most recent excluding new) -> Top Right
-                    // Task 1 (Oldest) -> Left Main
-                    SystemTaskHelper.resizeTask(currentTasks.get(1).id,
-                            new android.graphics.Rect(0, 0, width / 2, height));
-                    SystemTaskHelper.resizeTask(currentTasks.get(0).id,
-                            new android.graphics.Rect(width / 2, 0, width, height / 2));
-
-                } else if (runningCount == 3) {
-                    // 4th App: Launch to Bottom-Left (for Grid logic: 1(TL), 2(TR), 3(BL), 4(BR)?)
-                    // Plan says: "Resize all to 2x2 Grid (Quadrant 1, 2, 3, 4)."
-                    // New app -> Bottom Right?
-                    // Task 0 -> Top Right
-                    // Task 1 -> Bottom Left
-                    // Task 2 -> Top Left
-                    launchBounds = new android.graphics.Rect(width / 2, height / 2, width, height); // BR
-
-                    SystemTaskHelper.resizeTask(currentTasks.get(0).id,
-                            new android.graphics.Rect(width / 2, 0, width, height / 2)); // TR
-                    SystemTaskHelper.resizeTask(currentTasks.get(1).id,
-                            new android.graphics.Rect(0, height / 2, width / 2, height)); // BL
-                    SystemTaskHelper.resizeTask(currentTasks.get(2).id,
-                            new android.graphics.Rect(0, 0, width / 2, height / 2)); // TL
-                }
-
-                if (launchBounds != null) {
-                    options.setLaunchBounds(launchBounds);
-                }
             }
 
             context.startActivity(launchIntent, options.toBundle());
-
             hide();
+
+            // Auto-snap resize in background (non-blocking)
+            new Thread(() -> {
+                try {
+                    // Small delay to let the new app start
+                    Thread.sleep(500);
+
+                    List<SystemTaskHelper.RunningTask> currentTasks = SystemTaskHelper.getRecentTasks(10);
+                    int runningCount = currentTasks.size();
+
+                    // Auto-snap based on number of running tasks
+                    if (runningCount == 2) {
+                        // Split screen: left and right
+                        SystemTaskHelper.resizeTask(currentTasks.get(0).id,
+                                new android.graphics.Rect(width / 2, 0, width, height));
+                        SystemTaskHelper.resizeTask(currentTasks.get(1).id,
+                                new android.graphics.Rect(0, 0, width / 2, height));
+                    } else if (runningCount == 3) {
+                        // 3-way split
+                        SystemTaskHelper.resizeTask(currentTasks.get(0).id,
+                                new android.graphics.Rect(width / 2, height / 2, width, height));
+                        SystemTaskHelper.resizeTask(currentTasks.get(1).id,
+                                new android.graphics.Rect(width / 2, 0, width, height / 2));
+                        SystemTaskHelper.resizeTask(currentTasks.get(2).id,
+                                new android.graphics.Rect(0, 0, width / 2, height));
+                    } else if (runningCount >= 4) {
+                        // 2x2 grid
+                        if (currentTasks.size() > 0)
+                            SystemTaskHelper.resizeTask(currentTasks.get(0).id,
+                                    new android.graphics.Rect(width / 2, height / 2, width, height));
+                        if (currentTasks.size() > 1)
+                            SystemTaskHelper.resizeTask(currentTasks.get(1).id,
+                                    new android.graphics.Rect(0, height / 2, width / 2, height));
+                        if (currentTasks.size() > 2)
+                            SystemTaskHelper.resizeTask(currentTasks.get(2).id,
+                                    new android.graphics.Rect(width / 2, 0, width, height / 2));
+                        if (currentTasks.size() > 3)
+                            SystemTaskHelper.resizeTask(currentTasks.get(3).id,
+                                    new android.graphics.Rect(0, 0, width / 2, height / 2));
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -519,6 +475,7 @@ public class AppsOverlayController {
 
             if (app.taskId != -1) {
                 SystemTaskHelper.resizeTask(app.taskId, bounds);
+                DebugLogger.d("Snap applied to task", app.packageName + " snapped");
                 // Also ensures it's in freeform/multi-window mode if supported
                 // SystemTaskHelper.setTaskWindowingMode(app.taskId,
                 // SystemTaskHelper.WINDOWING_MODE_freeform); // Optional

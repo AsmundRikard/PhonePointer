@@ -20,14 +20,16 @@ public class U {
      */
     public static int getExternalDisplayID(Context context) {
         Display display = getExternalDisplay(context);
-        if (display == null) return Display.DEFAULT_DISPLAY;
+        if (display == null)
+            return Display.DEFAULT_DISPLAY;
         int id = display.getDisplayId();
         DebugLogger.d("DisplayTarget", "External display ID: " + id + " DEFAULT_DISPLAY: " + Display.DEFAULT_DISPLAY);
         return id;
     }
 
     /**
-     * Gets the external display: returns the last non-default display if present, otherwise null.
+     * Gets the external display: returns the last non-default display if present,
+     * otherwise null.
      */
     public static Display getExternalDisplay(Context context) {
         DisplayManager dm = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
@@ -75,13 +77,31 @@ public class U {
     }
 
     public static DisplayInfo getDisplayInfo(Context context) {
-        Display display = getExternalDisplay(context);
+        Display display = null;
+
+        // On API 30+, if context is a DisplayContext (e.g., from createDisplayContext),
+        // use context.getDisplay() to get the correct display.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                display = context.getDisplay();
+            } catch (UnsupportedOperationException e) {
+                // Some contexts don't support getDisplay()
+            }
+        }
+
+        // Fallback to searching for external display
+        if (display == null) {
+            display = getExternalDisplay(context);
+        }
+
         if (display == null)
             return new DisplayInfo(0, 0, 0, 0, false);
 
         DisplayMetrics metrics = new DisplayMetrics();
         display.getRealMetrics(metrics);
         int density = metrics.densityDpi;
+        DebugLogger.d("U", "getDisplayInfo: display=" + display.getDisplayId() + " w=" + metrics.widthPixels + " h="
+                + metrics.heightPixels);
         return new DisplayInfo(metrics.widthPixels, metrics.heightPixels, density, density, false);
     }
 

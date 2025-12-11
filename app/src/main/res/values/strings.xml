@@ -2,4 +2,5 @@
     <string name="app_name">PhonePointer</string>
     <string name="tb_touchpad_label">Touchpad</string>
     <string name="tb_touchpad_label_fullscreen">Desktop touchpad</string>
+    <string name="keyboard_relay_description">Detects text input focus on external display to show phone keyboard</string>
 </resources>
