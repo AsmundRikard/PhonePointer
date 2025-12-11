@@ -48,6 +48,11 @@ public class MainActivity extends AppCompatActivity {
     private int lastExternalDisplayId = Display.DEFAULT_DISPLAY;
     private boolean externalReady = false;
     private boolean shizukuPermissionGranted = false;
+    private boolean dimScreen = false;
+    private boolean gyroSlow = false;
+    private int swipeSens = 100;
+    private int gyroSensX = 100;
+    private int gyroSensY = 100;
 
     // Shizuku listeners
     private final Shizuku.OnBinderReceivedListener binderReceivedListener = () -> {
@@ -141,13 +146,6 @@ public class MainActivity extends AppCompatActivity {
         layout.setBackgroundColor(Color.parseColor("#1C1C1E"));
         layout.setPadding(24, 48, 24, 24);
 
-        TextView title = new TextView(this);
-        title.setText("PhonePointer");
-        title.setTextSize(24f);
-        title.setTextColor(Color.WHITE);
-        title.setGravity(Gravity.CENTER);
-        layout.addView(title);
-
         statusText = new TextView(this);
         statusText.setText("Waiting for external display...");
         statusText.setTextSize(14f);
@@ -163,8 +161,7 @@ public class MainActivity extends AppCompatActivity {
         navRow.addView(createNavButton("Back", () -> sendKeyEvent(KeyEvent.KEYCODE_BACK)));
         navRow.addView(createNavButton("Home", () -> sendKeyEvent(KeyEvent.KEYCODE_HOME)));
         navRow.addView(createNavButton("Recents", () -> sendKeyEvent(KeyEvent.KEYCODE_APP_SWITCH)));
-        navRow.addView(createNavButton("Gyro", this::toggleGyro));
-        navRow.addView(createNavButton("Logs", this::openLogs));
+        navRow.addView(createNavButton("Settings", this::openSettings));
 
         layout.addView(navRow);
 
@@ -191,6 +188,20 @@ public class MainActivity extends AppCompatActivity {
         }
 
         SharedPreferences pref = U.getSharedPreferences(this);
+        dimScreen = pref.getBoolean(Constants.PREF_DIM_SCREEN, false);
+        gyroSlow = pref.getBoolean(Constants.PREF_DESKTOP_GYRO_SLOW, false);
+        swipeSens = pref.getInt(Constants.PREF_SWIPE_SENS, 100); // UI default 100% maps to 0.5x
+        gyroSensX = pref.getInt(Constants.PREF_GYRO_SENS_X,
+                pref.getInt(Constants.PREF_GYRO_SENS, 100));
+        gyroSensY = pref.getInt(Constants.PREF_GYRO_SENS_Y,
+                pref.getInt(Constants.PREF_GYRO_SENS, 100));
+        inputController.setGyroDelayNormal(gyroSlow);
+        inputController.setSwipeSensitivity(U.swipeMultiplierFromPercent(swipeSens));
+        inputController.setGyroSensitivity(
+                U.gyroMultiplierFromPercent(gyroSensX),
+                U.gyroMultiplierFromPercent(gyroSensY));
+        applyScreenDim();
+
         if (!pref.getBoolean(Constants.PREF_DESKTOP_INPUT, true)) {
             inputController.detachTouchpad();
             return;
@@ -313,6 +324,34 @@ public class MainActivity extends AppCompatActivity {
         pref.edit().putBoolean(Constants.PREF_DESKTOP_GYRO, enabled).apply();
         inputController.setGyroEnabled(this, enabled);
         Toast.makeText(this, enabled ? "Gyro enabled" : "Gyro disabled", Toast.LENGTH_SHORT).show();
+    }
+
+    private void toggleDim() {
+        dimScreen = !dimScreen;
+        U.getSharedPreferences(this).edit().putBoolean(Constants.PREF_DIM_SCREEN, dimScreen).apply();
+        applyScreenDim();
+        Toast.makeText(this, dimScreen ? "Screen dimmed" : "Screen brightness restored", Toast.LENGTH_SHORT).show();
+    }
+
+    private void applyScreenDim() {
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        if (dimScreen) {
+            lp.screenBrightness = 0.05f; // very dim but still interactive
+        } else {
+            lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+        }
+        getWindow().setAttributes(lp);
+    }
+
+    private void toggleGyroRate() {
+        gyroSlow = !gyroSlow;
+        U.getSharedPreferences(this).edit().putBoolean(Constants.PREF_DESKTOP_GYRO_SLOW, gyroSlow).apply();
+        inputController.setGyroDelayNormal(gyroSlow);
+        Toast.makeText(this, gyroSlow ? "Gyro rate: NORMAL (battery friendly)" : "Gyro rate: FAST", Toast.LENGTH_SHORT).show();
+    }
+
+    private void openSettings() {
+        startActivity(new Intent(this, SettingsActivity.class));
     }
 
     private void openLogs() {

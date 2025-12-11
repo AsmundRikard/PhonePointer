@@ -98,4 +98,22 @@ public class U {
     public static float pxToDp(Context context, int px) {
         return px / context.getResources().getDisplayMetrics().density;
     }
+
+    /**
+     * Map swipe sensitivity percent (0-200) to an actual multiplier.
+     * 100% -> 0.5x (lower default), 200% -> 1.0x (old default).
+     */
+    public static float swipeMultiplierFromPercent(int percent) {
+        int p = Math.max(25, Math.min(400, percent));
+        return p / 200f;
+    }
+
+    /**
+     * Map gyro sensitivity percent (0-200) to a faster multiplier.
+     * 100% -> ~2700 (about 3x old baseline), 50% -> ~1350, 200% -> ~5400.
+     */
+    public static float gyroMultiplierFromPercent(int percent) {
+        int p = Math.max(25, Math.min(400, percent));
+        return 27f * p;
+    }
 }

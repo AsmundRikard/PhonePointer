@@ -31,9 +31,10 @@ import me.ambassator.phonepointer.util.U;
  */
 public class DesktopModeInputController {
 
-    private static final float CURSOR_SPEED_MULTIPLIER = 1.5f;
+    // Defaults are intentionally modest; can be overridden via setters.
     private static final float CURSOR_PULSE_SCALE = 1.12f;
-    private static final float GYRO_SPEED_MULTIPLIER = 1200f;
+    private static final float DEFAULT_SWIPE_MULTIPLIER = 1.0f;
+    private static final float DEFAULT_GYRO_MULTIPLIER = 2700f;
 
     private static DesktopModeInputController theInstance;
 
@@ -64,6 +65,10 @@ public class DesktopModeInputController {
     private SensorManager sensorManager;
     private SensorEventListener gyroListener;
     private long lastGyroTimestamp;
+    private int gyroDelay = SensorManager.SENSOR_DELAY_GAME;
+    private float swipeMultiplier = DEFAULT_SWIPE_MULTIPLIER;
+    private float gyroMultiplierX = DEFAULT_GYRO_MULTIPLIER;
+    private float gyroMultiplierY = DEFAULT_GYRO_MULTIPLIER;
 
     private DesktopModeInputController() {
     }
@@ -259,8 +264,8 @@ public class DesktopModeInputController {
                             suppressGyro = true;
                         }
                         if (isDragging) {
-                            swipeX = swipeX + (dx * CURSOR_SPEED_MULTIPLIER);
-                            swipeY = swipeY + (dy * CURSOR_SPEED_MULTIPLIER);
+                            swipeX = swipeX + (dx * swipeMultiplier);
+                            swipeY = swipeY + (dy * swipeMultiplier);
                             float sendX = clamp(swipeX, 0, cursorBoundsWidth);
                             float sendY = clamp(swipeY, 0, cursorBoundsHeight);
                             ShizukuInputHelper.moveDrag(cursorDisplayId, sendX, sendY);
@@ -280,8 +285,9 @@ public class DesktopModeInputController {
                         float endX = gyroEnabled ? clamp(swipeX, 0, cursorBoundsWidth) : cursorX;
                         float endY = gyroEnabled ? clamp(swipeY, 0, cursorBoundsHeight) : cursorY;
                         ShizukuInputHelper.endDrag(cursorDisplayId, endX, endY);
-                        cursorX = endX;
-                        cursorY = endY;
+                        // Restore visual cursor to where the drag began without sending extra input.
+                        cursorX = downX;
+                        cursorY = downY;
                         applyCursorPosition();
                     } else
                         performClick(context);
@@ -362,8 +368,8 @@ public class DesktopModeInputController {
         } else if (cursorBoundsWidth == 0 || cursorBoundsHeight == 0)
             updateCursorBounds(context, cursorLayoutParams.width);
 
-        cursorX = clamp(cursorX + (dx * CURSOR_SPEED_MULTIPLIER), 0, cursorBoundsWidth);
-        cursorY = clamp(cursorY + (dy * CURSOR_SPEED_MULTIPLIER), 0, cursorBoundsHeight);
+        cursorX = clamp(cursorX + (dx * swipeMultiplier), 0, cursorBoundsWidth);
+        cursorY = clamp(cursorY + (dy * swipeMultiplier), 0, cursorBoundsHeight);
 
         applyCursorPosition();
         updateDebug("cursor " + Math.round(cursorX) + "," + Math.round(cursorY));
@@ -458,6 +464,21 @@ public class DesktopModeInputController {
             disableGyro();
     }
 
+    /**
+     * Switch between fast (GAME) and normal gyro delay to trade responsiveness for battery.
+     */
+    public synchronized void setGyroDelayNormal(boolean useNormal) {
+        int newDelay = useNormal ? SensorManager.SENSOR_DELAY_NORMAL : SensorManager.SENSOR_DELAY_GAME;
+        if (newDelay == gyroDelay)
+            return;
+        gyroDelay = newDelay;
+        // If already enabled, re-register listener with new delay.
+        if (gyroEnabled && sensorManager != null && gyroListener != null) {
+            sensorManager.unregisterListener(gyroListener);
+            sensorManager.registerListener(gyroListener, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), gyroDelay);
+        }
+    }
+
     private void enableGyro(Context context) {
         sensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         if (sensorManager == null)
@@ -480,10 +501,10 @@ public class DesktopModeInputController {
                     float dt = (event.timestamp - lastGyroTimestamp) / 1_000_000_000f;
                     // event.values: [rot x, rot y, rot z]
                     // Rotate phone left/right (yaw around Z) moves cursor left/right.
-                    float dx = -event.values[2] * GYRO_SPEED_MULTIPLIER * dt;
+                    float dx = -event.values[2] * gyroMultiplierX * dt;
                     // Tilt phone forward/back (pitch around X) moves cursor up/down (invert to
                     // match natural feel).
-                    float dy = -event.values[0] * GYRO_SPEED_MULTIPLIER * dt;
+                    float dy = -event.values[0] * gyroMultiplierY * dt;
                     moveCursorBy(context, dx, dy);
                     updateDebug("gyro dx=" + String.format("%.2f", dx) + " dy=" + String.format("%.2f", dy));
                 }
@@ -495,7 +516,7 @@ public class DesktopModeInputController {
             }
         };
 
-        sensorManager.registerListener(gyroListener, sensor, SensorManager.SENSOR_DELAY_GAME);
+        sensorManager.registerListener(gyroListener, sensor, gyroDelay);
     }
 
     private void disableGyro() {
@@ -515,5 +536,27 @@ public class DesktopModeInputController {
 
     public boolean isGyroEnabled() {
         return gyroEnabled;
+    }
+
+    /**
+     * Sets swipe/touchpad sensitivity multiplier (1.0 = default, lower = slower, higher = faster).
+     */
+    public void setSwipeSensitivity(float multiplier) {
+        swipeMultiplier = Math.max(0.1f, multiplier);
+    }
+
+    /**
+     * Sets gyro-based cursor speed multiplier for both axes.
+     */
+    public void setGyroSensitivity(float multiplier) {
+        setGyroSensitivity(multiplier, multiplier);
+    }
+
+    /**
+     * Sets gyro-based cursor speed multiplier per axis.
+     */
+    public void setGyroSensitivity(float multiplierX, float multiplierY) {
+        gyroMultiplierX = Math.max(50f, multiplierX);
+        gyroMultiplierY = Math.max(50f, multiplierY);
     }
 }

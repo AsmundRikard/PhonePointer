@@ -46,6 +46,16 @@ public class TrackpadActivity extends AppCompatActivity {
             finish();
             return;
         }
+        int swipeSens = pref.getInt(Constants.PREF_SWIPE_SENS, 100);
+        int gyroSensX = pref.getInt(Constants.PREF_GYRO_SENS_X,
+                pref.getInt(Constants.PREF_GYRO_SENS, 100));
+        int gyroSensY = pref.getInt(Constants.PREF_GYRO_SENS_Y,
+                pref.getInt(Constants.PREF_GYRO_SENS, 100));
+        controller.setSwipeSensitivity(U.swipeMultiplierFromPercent(swipeSens));
+        controller.setGyroSensitivity(
+                U.gyroMultiplierFromPercent(gyroSensX),
+                U.gyroMultiplierFromPercent(gyroSensY));
+        controller.setGyroDelayNormal(pref.getBoolean(Constants.PREF_DESKTOP_GYRO_SLOW, false));
 
         // Set target to external display if available
         int externalDisplayId = U.getExternalDisplayID(this);
