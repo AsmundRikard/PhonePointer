@@ -27,7 +27,8 @@ import me.ambassator.phonepointer.util.DisplayInfo;
 import me.ambassator.phonepointer.util.U;
 
 /**
- * Port of Taskbar's DesktopModeInputController for cursor overlay, touchpad input, and gyro control.
+ * Port of Taskbar's DesktopModeInputController for cursor overlay, touchpad
+ * input, and gyro control.
  */
 public class DesktopModeInputController {
 
@@ -334,18 +335,27 @@ public class DesktopModeInputController {
         WindowManager wm = cursorWindowManager.get();
         if (wm != null) {
             Display display = wm.getDefaultDisplay();
-            if (display != null) {
+            // DEFAULT_DISPLAY might be wrong if wm is from activity but display is
+            // external.
+            // Using context.getDisplay() is better on API 30+.
+            // But let's trust the U.getDisplayInfo(context) if context is a DisplayContext.
+        }
+
+        // Fix: Always try U.getDisplayInfo(context) first because we pass a
+        // DisplayContext
+        DisplayInfo info = U.getDisplayInfo(context);
+        width = info.width;
+        height = info.height;
+
+        if (width == 0 || height == 0) {
+            // Fallback to WM
+            if (wm != null) {
+                Display display = wm.getDefaultDisplay();
                 Point real = new Point();
                 display.getRealSize(real);
                 width = real.x;
                 height = real.y;
             }
-        }
-
-        if (width == 0 || height == 0) {
-            DisplayInfo info = U.getDisplayInfo(context);
-            width = info.width;
-            height = info.height;
         }
 
         cursorBoundsWidth = Math.max(0, width - cursorSize);
@@ -465,7 +475,8 @@ public class DesktopModeInputController {
     }
 
     /**
-     * Switch between fast (GAME) and normal gyro delay to trade responsiveness for battery.
+     * Switch between fast (GAME) and normal gyro delay to trade responsiveness for
+     * battery.
      */
     public synchronized void setGyroDelayNormal(boolean useNormal) {
         int newDelay = useNormal ? SensorManager.SENSOR_DELAY_NORMAL : SensorManager.SENSOR_DELAY_GAME;
@@ -475,7 +486,8 @@ public class DesktopModeInputController {
         // If already enabled, re-register listener with new delay.
         if (gyroEnabled && sensorManager != null && gyroListener != null) {
             sensorManager.unregisterListener(gyroListener);
-            sensorManager.registerListener(gyroListener, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), gyroDelay);
+            sensorManager.registerListener(gyroListener, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                    gyroDelay);
         }
     }
 
@@ -539,7 +551,8 @@ public class DesktopModeInputController {
     }
 
     /**
-     * Sets swipe/touchpad sensitivity multiplier (1.0 = default, lower = slower, higher = faster).
+     * Sets swipe/touchpad sensitivity multiplier (1.0 = default, lower = slower,
+     * higher = faster).
      */
     public void setSwipeSensitivity(float multiplier) {
         swipeMultiplier = Math.max(0.1f, multiplier);

@@ -8,6 +8,7 @@ public class AppInfo {
     public final String packageName;
     public final Drawable icon;
     public final ComponentName componentName;
+    public int taskId = -1; // Default -1 means not running
 
     public AppInfo(String label, String packageName, Drawable icon, ComponentName componentName) {
         this.label = label;
